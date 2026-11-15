@@ -1,0 +1,10 @@
+node_modules/
+coverage/
+dist/
+*.log
+.env
+.env.*
+!.env.example
+# Generated MATMA index files; keep human-authored tests and registry tracked.
+**/tests/mirror/**/*.auto.yaml
+**/tests/mirror/*.auto.yaml

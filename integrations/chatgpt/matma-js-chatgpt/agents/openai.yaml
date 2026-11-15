@@ -1,0 +1,6 @@
+interface:
+  display_name: "MATMA JavaScript"
+  short_description: "Pure JS symbol impact and strict Vitest verification"
+  default_prompt: "Use MATMA JavaScript's normative seven rules and JavaScript symbol amendment to index public symbols, review and author strict centralized mocks, report impacted Vitest tests, and execute selected tests explicitly where tooling permits."
+policy:
+  allow_implicit_invocation: true

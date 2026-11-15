@@ -1,0 +1,37 @@
+name: MATMA JavaScript CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install package/test dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Source syntax checks
+        run: npm run check
+      - name: Vitest unit/business/consumer tests
+        run: npm test
+      - name: CLI consumer smoke (creates deliberately failing starters, does not run them)
+        shell: bash
+        run: |
+          cd fixtures/consumer
+          node ../../bin/matma.js index -o json
+          node ../../bin/matma.js impact -f 'src/validator.mjs#validateEmail' -l 1 -o json
+          node ../../bin/matma.js scaffold -f 'src/user.mjs#loadUser' -o json
+          node ../../bin/matma.js context -f 'src/user.mjs#loadUser' -o json
+      - name: NPM package check
+        run: npm pack --dry-run
