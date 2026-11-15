@@ -19,7 +19,8 @@ describe('reverse impact and symbol changes', () => {
     const old={symbols:[s('A','old'),s('B','same')],edges:[e('B','A')]};
     const now={symbols:[s('A','new'),s('B','same')],edges:[]};
     const result=changes(old,now,1);
-    expect(result.changed_symbols.map(s=>s.id)).toEqual(['A']);
+    // Removing B -> A is itself a meaningful dependency change in B.
+    expect(result.changed_symbols.map(s=>s.id)).toEqual(['A','B']);
     expect(result.selected_targets).toEqual(['A','B']);
   });
 
