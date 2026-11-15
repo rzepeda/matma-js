@@ -19,8 +19,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-      - name: Pin npm for repeatable Node 20/22 dependency resolution
-        run: npm install --global npm@10.8.2
       - name: Install package/test dependencies
         run: npm install --no-audit --no-fund
       - name: Source syntax checks
