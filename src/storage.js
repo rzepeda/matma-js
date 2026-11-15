@@ -83,5 +83,5 @@ export function resolveRegistry(root, index, symbolIds, testRoot = 'tests') {
 }
 
 export function fingerprintIndex(index) {
-  return hash(JSON.stringify({ symbols: index.symbols.map(s => [s.id,s.fingerprint,s.public,s.exports]), edges: index.edges }));
+  return hash(JSON.stringify({ symbols: index.symbols.map(s => [s.id,s.fingerprint,s.public,s.exports,s.kind,s.external_dependencies]), edges: index.edges }));
 }

@@ -89,7 +89,7 @@ export function analyze(config, inventory, testsRoot = 'tests') {
       id, file: filePath, name, kind: kindOf(node), public: exposed,
       exports: exposed ? [exportedName || name] : [],
       fingerprint: hash(canonical(printer, node, file)), ...location,
-      mirrors: mirrors(filePath, name, testsRoot), uses_fetch: false
+      mirrors: mirrors(filePath, name, testsRoot), uses_fetch: false, external_dependencies: []
     };
     records.push(record);
     nodes.set(id, node);
@@ -171,7 +171,29 @@ export function analyze(config, inventory, testsRoot = 'tests') {
         diagnostics.push(warn('dynamic_export', 'Computed export assignment requires manual review', { file: relative }));
       }
     }
-    fileData.set(filename, { source, declarations, relative, isModule, isCjs });
+    // Track *external* packages as collaborators, not fabricated internal graph nodes.
+    // No framework is privileged: React, Axios, Node built-ins, etc. are all imports.
+    const externalBindings = new Map();
+    for (const stmt of source.statements) {
+      if (ts.isImportDeclaration(stmt) && isString(stmt.moduleSpecifier) && !stmt.moduleSpecifier.text.startsWith('.')) {
+        const moduleName = stmt.moduleSpecifier.text;
+        const clause = stmt.importClause;
+        if (clause?.name) externalBindings.set(clause.name.text, { module: moduleName, imported: 'default', declaration: clause.name });
+        const bindings = clause?.namedBindings;
+        if (bindings && ts.isNamespaceImport(bindings)) externalBindings.set(bindings.name.text, { module: moduleName, imported: '*', declaration: bindings.name });
+        if (bindings && ts.isNamedImports(bindings)) for (const spec of bindings.elements) externalBindings.set(spec.name.text, { module: moduleName, imported: (spec.propertyName || spec.name).text, declaration: spec.name });
+      }
+      if (ts.isVariableStatement(stmt)) for (const decl of stmt.declarationList.declarations) {
+        const init = decl.initializer;
+        if (!init || !ts.isCallExpression(init) || !ts.isIdentifier(init.expression) || init.expression.text !== 'require' || !isString(init.arguments[0]) || init.arguments[0].text.startsWith('.')) continue;
+        const moduleName = init.arguments[0].text;
+        if (ts.isIdentifier(decl.name)) externalBindings.set(decl.name.text, { module: moduleName, imported: '*', declaration: decl.name });
+        if (ts.isObjectBindingPattern(decl.name)) for (const element of decl.name.elements) {
+          if (ts.isIdentifier(element.name)) externalBindings.set(element.name.text, { module: moduleName, imported: element.propertyName?.getText(source) || element.name.text, declaration: element.name });
+        }
+      }
+    }
+    fileData.set(filename, { source, declarations, relative, isModule, isCjs, externalBindings });
   }
 
   // Reject filename collisions before writing any generated manifest or scaffold.
@@ -192,7 +214,7 @@ export function analyze(config, inventory, testsRoot = 'tests') {
   };
 
   for (const [filename, data] of fileData) {
-    const { source, relative } = data;
+    const { source, relative, externalBindings } = data;
     const fileRecords = records.filter(r => r.file === relative);
     const processImport = (moduleSpecifier, bindings = [], sideEffect = false) => {
       if (!isString(moduleSpecifier)) { diagnostics.push(warn('dynamic_dependency', 'Non-literal module specifier cannot be resolved statically', { file: relative })); return; }
@@ -254,6 +276,15 @@ export function analyze(config, inventory, testsRoot = 'tests') {
         if (ts.isIdentifier(current)) {
           if (current.text === 'fetch' && (ts.isCallExpression(current.parent) || ts.isPropertyAccessExpression(current.parent))) record.uses_fetch = true;
           if (!isDefinitionName(current)) {
+            const external = externalBindings.get(current.text);
+            if (external) {
+              const actual = checker.getSymbolAtLocation(current);
+              const declared = checker.getSymbolAtLocation(external.declaration);
+              if (!actual || !declared || actual === declared) {
+                const reference = { module: external.module, imported: external.imported, local: current.text, kind: 'external_package' };
+                if (!record.external_dependencies.some(dep => dep.module === reference.module && dep.local === reference.local)) record.external_dependencies.push(reference);
+              }
+            }
             const targetId = ownerOf(current);
             if (targetId && byId.has(targetId)) addEdge(record.id, targetId, 1, 'used_symbol');
           }
@@ -280,6 +311,7 @@ export function analyze(config, inventory, testsRoot = 'tests') {
     }
   }
   // Deterministic symbol order, no duplicate edges, and no false dependency from co-location alone.
+  for (const record of records) record.external_dependencies.sort((a,b) => a.module.localeCompare(b.module) || a.local.localeCompare(b.local));
   records.sort((a,b) => a.id.localeCompare(b.id));
   const relationships = [...edges.values()].sort((a,b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
   return { symbols: records, edges: relationships, diagnostics };

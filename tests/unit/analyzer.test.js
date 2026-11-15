@@ -22,6 +22,7 @@ describe('pure JavaScript symbol indexing', () => {
     const index = get(root);
     expect(index.symbols.map(s=>[s.name,s.public]).sort((a,b)=>a[0].toLowerCase().localeCompare(b[0].toLowerCase()))).toEqual([['a',true],['b',true],['C',true],['helper',false]]);
     expect(index.edges).toContainEqual(expect.objectContaining({from:'src/a.mjs#a',to:'src/a.mjs#helper',weight:1}));
+    expect(index.diagnostics).toContainEqual(expect.objectContaining({code:'injection_seam_review',from:'src/a.mjs#a',to:'src/a.mjs#helper'}));
     expect(index.symbols.find(s=>s.name==='a').mirrors.unit_test).not.toEqual(index.symbols.find(s=>s.name==='b').mirrors.unit_test);
   });
 
@@ -75,6 +76,21 @@ describe('pure JavaScript symbol indexing', () => {
   it('fails safely on a mirror slug collision rather than merging symbols', () => {
     const root = project({'src/a.mjs':'export const fooBar = 1; export const foo_bar = 2;'});
     expect(() => get(root)).toThrow(/mirror collision/i);
+  });
+
+  it('records imported third-party JavaScript packages as external collaborators without special framework treatment', () => {
+    const root = project({
+      'src/external.mjs': 'import Api from "some-http-sdk"; import {helper} from "some-library"; export function request() {return Api.get("/x")} export function callHelper(){return helper()}',
+      'src/legacy.cjs': 'const client = require("other-library"); exports.run = function(){ return client.run() }'
+    });
+    const index = get(root);
+    const request = index.symbols.find(s=>s.name==='request');
+    const helper = index.symbols.find(s=>s.name==='callHelper');
+    const cjs = index.symbols.find(s=>s.name==='run');
+    expect(request.external_dependencies).toContainEqual(expect.objectContaining({module:'some-http-sdk',local:'Api'}));
+    expect(request.external_dependencies).not.toContainEqual(expect.objectContaining({module:'some-library'}));
+    expect(helper.external_dependencies).toContainEqual(expect.objectContaining({module:'some-library',local:'helper'}));
+    expect(cjs.external_dependencies).toContainEqual(expect.objectContaining({module:'other-library',local:'client'}));
   });
 
   it('does not execute application code while indexing', () => {

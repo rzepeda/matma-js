@@ -23,6 +23,12 @@ describe('reverse impact and symbol changes', () => {
     expect(result.selected_targets).toEqual(['A','B']);
   });
 
+  it('selects symbols whose import dependencies or visibility changed without body edits', () => {
+    const old={symbols:[{...s('A','same'),external_dependencies:[{module:'one'}],exports:['A']}],edges:[e('A','B')]};
+    const now={symbols:[{...s('A','same'),external_dependencies:[{module:'two'}],exports:['renamed']}],edges:[e('A','C')]};
+    expect(changes(old,now,1).changed_symbols.map(s=>s.id)).toEqual(['A']);
+  });
+
   it('ignores unchanged siblings with their own symbol fingerprint', () => {
     const old={symbols:[s('A','old'),s('B','same')],edges:[]};
     const now={symbols:[s('A','new'),s('B','same')],edges:[]};

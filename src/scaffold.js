@@ -69,5 +69,6 @@ export function scaffold(root, selected, options = {}) {
     fs.writeFileSync(absolute, content, { flag: 'wx' });
     created.push(relative);
   }
-  return { created, existing: present.sort(), unfinished_tests: created.filter(p => p.includes('.test.mjs')) };
+  return { created, existing: present.sort(), unfinished_tests: created.filter(p => p.includes('.test.mjs')),
+    external_mock_review: selected.flatMap(s => (s.external_dependencies || []).map(d => ({ symbol: s.id, module: d.module, message: 'Author a centralized mock and verify DI/import interception; no implicit implementation is generated' }))) };
 }

@@ -44,6 +44,7 @@ export function projectConfig(root, cliRoots = []) {
     if (!inside(root, full) || !fs.existsSync(full) || !fs.statSync(full).isDirectory()) {
       throw new MatmaError('invalid_source_root', `Source root does not exist inside project: ${value}`);
     }
+    safeOutput(root, rel(root,full)); // Reject symlinked ancestor directories, even if lexically inside the project.
     if (fs.lstatSync(full).isSymbolicLink()) throw new MatmaError('unsafe_symlink', `Source root is a symlink: ${value}`);
     return full;
   }))];
@@ -79,6 +80,11 @@ export function inventory(config) {
 
 export function checkFreshness(root, index) {
   const config = projectConfig(root, index.source_roots || []);
+  for (const item of index.project_inputs || []) {
+    const full = safeOutput(root, item.path);
+    const current = fs.existsSync(full) ? hash(fs.readFileSync(full)) : null;
+    if (current !== item.hash) throw new MatmaError('stale_index', `Project configuration changed: ${item.path}; run index`);
+  }
   for (const item of index.files || []) {
     const full = safeOutput(root, item.path);
     if (!fs.existsSync(full) || !fs.statSync(full).isFile() || hash(fs.readFileSync(full)) !== item.hash) {

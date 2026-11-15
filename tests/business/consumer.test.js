@@ -49,6 +49,18 @@ describe('real consumer workflow',()=>{
     expect(result.selected_targets).toEqual(['src/x.mjs#publicFn']);
   });
 
+  it('detects changed package metadata and source-root config as stale index input',()=>{
+    const root=setup({...initial,'package.json':'{"type":"module"}'});
+    execute('index',{root});
+    fs.writeFileSync(path.join(root,'package.json'),'{"type":"commonjs"}');
+    expect(()=>execute('impact',{root,target:'validate'})).toThrow(/configuration changed/);
+  });
+
+  it('requires a previous meaningful revision for changes',()=>{
+    const root=setup(initial); execute('index',{root});
+    expect(()=>execute('changes',{root})).toThrow(/No earlier indexed revision/);
+  });
+
   it('requires public targets for scaffolding and rejects ambiguous file names',()=>{
     const root=setup(initial); execute('index',{root});
     expect(()=>execute('scaffold',{root,target:'src/validator.mjs'})).toThrow(/Ambiguous/);

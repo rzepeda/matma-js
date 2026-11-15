@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { inventory, projectConfig, rel, safeOutput } from './project.js';
+import { inventory, projectConfig, rel, safeOutput, hash } from './project.js';
 import { analyze } from './analyzer.js';
 import { fingerprintIndex, INDEX, PREVIOUS, readGenerated, writeGenerated } from './storage.js';
 import { MatmaError } from './errors.js';
 
-const sorted = items => [...items].sort((a,b) => a.localeCompare(b));
+const hashFile = file => hash(fs.readFileSync(file));
 
 export function computeIndex(root, roots = [], testRoot = 'tests') {
   const config = projectConfig(root, roots);
@@ -18,6 +18,7 @@ export function computeIndex(root, roots = [], testRoot = 'tests') {
     generator: 'matma-js', schema_version: 1,
     source_roots: config.roots.map(folder => rel(root, folder) || '.'),
     files: snapshot.files.map(({path: file, hash}) => ({ path: file, hash })),
+    project_inputs: ['package.json','matma.config.json'].map(file => ({path: file, hash: fs.existsSync(path.join(root,file)) ? hashFile(path.join(root,file)) : null})),
     directories: snapshot.directories,
     symbols: result.symbols, edges: result.edges, diagnostics: result.diagnostics
   };
@@ -37,7 +38,7 @@ export function writeIndex(root, index, testRoot = 'tests') {
       generator: 'matma-js', schema_version: 1, id: symbol.id, file: symbol.file, name: symbol.name, kind: symbol.kind,
       public: symbol.public, exports: symbol.exports, fingerprint: symbol.fingerprint,
       source_region: { start: symbol.start, end: symbol.end, line: symbol.line },
-      uses_fetch: symbol.uses_fetch, mirrors: symbol.mirrors, dependencies, dependents
+      uses_fetch: symbol.uses_fetch, external_dependencies: symbol.external_dependencies, mirrors: symbol.mirrors, dependencies, dependents
     };
   }
   writeGenerated(root, files);

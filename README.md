@@ -8,7 +8,7 @@
 
 - **One public symbol = one MATMA test identity.** Multiple named exports/classes/functions in one `.js`, `.mjs` or `.cjs` are independently mirrored, tested, indexed and change-tracked. Private symbols are indexed for dependency impact but not independently unit-tested. No false dependency merely from being in the same file.
 - **One real unit / two real interaction partners**; other collaborators are centralized mocks. Business tests run real internal workflow logic with mocked service boundaries; regression runs real services/datasets with **no mocks**.
-- **Static-first AST indexing:** ESM and CommonJS imports, aliases, reexports and ordinary classic scripts; explicitly warn for nonliteral imports or other unresolved cases. Native JavaScript only; no React-specific handling, JSX, TypeScript/TSX or Jest.
+- **Static-first AST indexing:** ESM and CommonJS imports, aliases, reexports and ordinary classic scripts; third-party packages are recorded as external collaborators without framework-specific treatment. Explicitly warn for nonliteral imports or other unresolved cases. Native JavaScript only; no React-specific handling, JSX, TypeScript/TSX or Jest.
 - **Strict mocks:** no silent `undefined` fallback. `fetch` double supports HTTP success/error, network error, timeout/abort and malformed JSON. Generated Vitest tests *fail* until you author actual assertions.
 - **Non-destructive:** no rewrites or injection seams inserted into production. Existing tests and mocks are never overwritten. Generated `.auto.yaml` files are owned by MATMA and safe to regenerate; `impact` never reparses AST and never runs Vitest.
 

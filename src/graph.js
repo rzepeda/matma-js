@@ -50,7 +50,15 @@ export function impacts(index, id, level) {
 export function changes(previous, current, level) {
   const old = new Map((previous?.symbols || []).map(s => [s.id, s]));
   const now = new Map((current.symbols || []).map(s => [s.id, s]));
-  const changed = [...new Set([...old.keys(), ...now.keys()])].filter(id => !old.has(id) || !now.has(id) || old.get(id).fingerprint !== now.get(id).fingerprint).sort();
+  const outgoing = (index,id) => JSON.stringify((index?.edges || []).filter(e=>e.from===id).map(e=>[e.to,e.weight,e.kind]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));
+  const changed = [...new Set([...old.keys(), ...now.keys()])].filter(id => {
+    if (!old.has(id) || !now.has(id)) return true;
+    const a=old.get(id), b=now.get(id);
+    return a.fingerprint!==b.fingerprint || a.public!==b.public || a.kind!==b.kind ||
+      JSON.stringify(a.exports||[])!==JSON.stringify(b.exports||[]) ||
+      JSON.stringify(a.external_dependencies||[])!==JSON.stringify(b.external_dependencies||[]) ||
+      outgoing(previous,id)!==outgoing(current,id);
+  }).sort();
   const edges = new Map();
   for (const edge of [...(previous?.edges || []), ...(current.edges || [])]) {
     const key = `${edge.from}\0${edge.to}`;

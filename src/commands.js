@@ -44,10 +44,16 @@ export function execute(command, args = {}) {
       const scaffoldResult = args.scaffold ? scaffold(root, args.target ? [resolveTarget(index, args.target, true)] : index.symbols.filter(s=>s.public), {testRoot}) : null;
       return { command, stats, written_manifests: written.length, warnings: index.diagnostics, ...(scaffoldResult && { scaffold: scaffoldResult }) };
     }
-    const missing = index.symbols.filter(s => s.public).flatMap(s => [s.mirrors.unit_test, s.mirrors.interaction_test, s.mirrors.mock_file]).filter(f => !fs.existsSync(safeOutput(root,f))).sort();
+    const expected = index.symbols.filter(s => s.public).flatMap(s => [s.mirrors.unit_test, s.mirrors.interaction_test, s.mirrors.mock_file]);
+    if (index.symbols.some(s => s.public && s.uses_fetch)) expected.push(`${testRoot}/mocks/mirror/_external/mock_fetch.mjs`);
+    const missing = expected.filter(f => !fs.existsSync(safeOutput(root,f))).sort();
     const unimplemented = index.symbols.filter(s=>s.public).flatMap(s=>[s.mirrors.unit_test,s.mirrors.interaction_test]).filter(f=> fs.existsSync(safeOutput(root,f)) && fs.readFileSync(safeOutput(root,f),'utf8').includes('throw new Error("MATMA: implement'));
     const diagnostics = [...index.diagnostics];
-    const validation = { command, stats, missing, unimplemented, warnings: diagnostics, valid: !missing.length && !unimplemented.length && !diagnostics.some(d=>d.code==='syntax_error') };
+    const isolationReview = diagnostics.filter(d => d.code==='injection_seam_review');
+    const validation = { command, stats, missing, unimplemented, warnings: diagnostics,
+      isolation_review_required: isolationReview,
+      valid: !missing.length && !unimplemented.length && !diagnostics.some(d=>d.code==='syntax_error'),
+      note: 'valid assesses structural artifacts and unfinished starters, not automatic proof of real-versus-mock isolation' };
     if (args.check && !validation.valid) throw new MatmaError('validation_failed','Missing or unfinished mirrored tests/mocks',validation);
     return validation;
   }
@@ -67,6 +73,7 @@ export function execute(command, args = {}) {
   if (command === 'changes') {
     const index = readIndex(root,testRoot);
     const previous = readGenerated(root, `${testRoot}/mirror/.previous-index.auto.yaml`, true);
+    if (!previous) throw new MatmaError('missing_previous_index', 'No earlier indexed revision; edit source then explicitly index before comparing changes');
     const result = changes(previous,index,args.level??2);
     const affected = { tests: { unit: new Set(), interaction: new Set() } };
     for (const id of result.selected_targets) {
