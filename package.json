@@ -1,0 +1,21 @@
+{
+  "name": "@rzepeda/matma-js",
+  "version": "0.1.0-dev.0",
+  "description": "MATMA static symbol-indexed testing and mock architecture for plain JavaScript",
+  "type": "module",
+  "private": false,
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "bin": { "matma-indexer": "./bin/matma.js" },
+  "exports": { ".": "./src/index.js" },
+  "files": ["bin", "src", "templates", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:business": "vitest run tests/business",
+    "check": "node --check bin/matma.js && node --check src/indexer.js && node --check src/analyzer.js && node --check src/commands.js && node --check src/scaffold.js",
+    "pack:check": "npm pack --dry-run"
+  },
+  "dependencies": { "typescript": "^5.9.3", "yaml": "^2.8.1" },
+  "devDependencies": { "vitest": "^4.0.0" }
+}

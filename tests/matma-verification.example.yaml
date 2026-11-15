@@ -1,0 +1,7 @@
+schema_version: 1
+registrations:
+  "src/domain/user.js#createUser":
+    business:
+      - tests/business/user_workflow.test.mjs
+    regression:
+      - tests/regression/real_services.test.mjs
