@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
+    # Fork and other PRs stay on GitHub-hosted runners; trusted branch pushes use the homeserver.
+    runs-on: ${{ fromJSON(matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request' && '["self-hosted","linux","x64","homeserver-ci-safe"]' || format('["{0}"]', matrix.os)) }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -16,6 +21,8 @@ jobs:
         node: ['20', '22']
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
